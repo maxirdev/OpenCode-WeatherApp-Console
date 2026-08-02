@@ -39,21 +39,28 @@ const commands: Command[] = [
   { id: "9", label: () => "Salir", run: () => "" },
 ];
 
-const VALID = new Set(commands.map((c) => c.id));
+export type MenuIO = {
+  render: typeof renderMenu;
+  read: typeof readMenuOption;
+};
 
-async function main(): Promise<void> {
-  const config = loadConfig();
+export async function runMenu(
+  config: Config,
+  cmds: Command[],
+  io: MenuIO = { render: renderMenu, read: readMenuOption },
+): Promise<void> {
+  const VALID = new Set(cmds.map((c) => c.id));
   let lastMessage: string | undefined;
   while (true) {
-    renderMenu(config, commands, lastMessage);
-    const opt = readMenuOption();
+    io.render(config, cmds, lastMessage);
+    const opt = io.read();
     if (opt === null) break;
     if (!VALID.has(opt)) {
       lastMessage = err("Opción inválida. Usa 1-6, 8 o 9.");
       continue;
     }
     if (opt === "9") break;
-    const cmd = commands.find((c) => c.id === opt);
+    const cmd = cmds.find((c) => c.id === opt);
     if (!cmd) break;
     try {
       lastMessage = await cmd.run(config);
@@ -64,4 +71,19 @@ async function main(): Promise<void> {
   console.log(cyan(bold("¡Hasta luego!")));
 }
 
-await main();
+export function buildConfig(): Config {
+  return loadConfig();
+}
+
+export function buildCommands(): Command[] {
+  return commands;
+}
+
+export async function main(): Promise<void> {
+  const config = loadConfig();
+  await runMenu(config, commands);
+}
+
+if (import.meta.main) {
+  await main();
+}
