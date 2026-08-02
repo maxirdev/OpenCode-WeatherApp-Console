@@ -1,24 +1,33 @@
 import type { Config } from "./config";
+import { cyan, bold, dim } from "./colors";
+
+export type Command = {
+  id: string;
+  label: (config: Config) => string;
+  run: (config: Config) => Promise<string> | string;
+};
 
 const SEP = "=".repeat(39);
 
-export function renderMenu(config: Config): void {
-  const unitLabel = config.units === "c" ? "°C" : "°F";
+export function renderMenu(
+  config: Config,
+  commands: Command[],
+  lastMessage?: string,
+): void {
   console.clear();
-  console.log(SEP);
-  console.log("         WEATHER CLI");
-  console.log(SEP);
-  console.log("  1. Clima de ciudad default");
-  console.log(`  2. Clima de todas las ciudades (${config.cities.length})`);
-  console.log("  3. Buscar y agregar ciudad");
-  console.log("  4. Eliminar ciudad");
-  console.log("  5. Establecer ciudad default");
-  console.log(`  8. Ajustes (${unitLabel})`);
-  console.log("  9. Salir");
-  console.log(SEP);
+  if (lastMessage) {
+    console.log(lastMessage.trimEnd());
+    console.log(dim(SEP));
+  }
+  console.log(cyan(bold("         WEATHER CLI")));
+  console.log(cyan(SEP));
+  for (const cmd of commands) {
+    console.log(`  ${cyan(cmd.id)}. ${cmd.label(config)}`);
+  }
+  console.log(cyan(SEP));
   if (config.defaultCity) {
-    console.log(`  Default: ${config.defaultCity.name}`);
-    console.log(SEP);
+    console.log(`  Default: ${dim(config.defaultCity.name)}`);
+    console.log(cyan(SEP));
   }
 }
 

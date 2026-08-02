@@ -10,9 +10,11 @@
     "typescript": "^5"
   },
   "scripts": {
-    "build": "bun build --compie index.ts --outfile weather",
+    "build": "bun build --compile index.ts --outfile ./out/weather",
     "start": "bun run index.ts",
     "dev": "bun run index.ts --watch"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1"
   }
-
 }

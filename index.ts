@@ -1,58 +1,104 @@
 import { loadConfig, saveConfig } from "./src/config";
 import type { City, Config, Units } from "./src/config";
 import { geocodeCity, getForecast } from "./src/api";
-import { displayWeather } from "./src/display";
+import { weatherBlock, dailyBlock } from "./src/display";
 import { renderMenu, readMenuOption } from "./src/menu";
-
-const VALID_OPTIONS = new Set(["1", "2", "3", "4", "5", "8", "9"]);
-
-async function showWeatherForCity(city: City, units: Units): Promise<void> {
-  try {
-    const forecast = await getForecast(city.latitude, city.longitude, units);
-    displayWeather(city, forecast);
-  } catch (err) {
-    console.log(
-      `No se pudo obtener el clima de ${city.name}: ${(err as Error).message}`,
-    );
-    console.log("");
-  }
-}
+import type { Command } from "./src/menu";
+import { withSpinner } from "./src/spinner";
+import { ok, err, cyan, bold } from "./src/colors";
 
 function regionOf(c: City): string {
   return [c.admin1, c.country].filter(Boolean).join(", ");
 }
 
-async function addCity(config: Config): Promise<void> {
-  const name = prompt("Nombre de la ciudad: ");
-  if (!name) return;
-  const city = await geocodeCity(name);
-  if (!city) {
-    console.log(`No se encontró la ciudad "${name}".`);
-    console.log("");
-    return;
+async function pickCity(
+  config: Config,
+  name: string,
+): Promise<{ city: City | null; message: string }> {
+  let results: City[];
+  try {
+    results = await withSpinner("Buscando…", () => geocodeCity(name));
+  } catch (e) {
+    return { city: null, message: err(`Error de red: ${(e as Error).message}`) };
   }
+  if (results.length === 0) {
+    return { city: null, message: err(`No se encontró "${name}".`) };
+  }
+  if (results.length === 1) {
+    const city = results[0];
+    return city ? { city, message: "" } : { city: null, message: "" };
+  }
+  console.log("Varias coincidencias:");
+  results.forEach((c, i) => {
+    const region = regionOf(c);
+    console.log(`  ${i + 1}. ${c.name}${region ? " — " + region : ""}`);
+  });
+  const input = prompt("Elige el número (Enter para cancelar): ");
+  const idx = input ? Number.parseInt(input, 10) - 1 : NaN;
+  if (Number.isNaN(idx) || idx < 0 || idx >= results.length) {
+    return { city: null, message: err("Selección cancelada.") };
+  }
+  const city = results[idx];
+  return city ? { city, message: "" } : { city: null, message: "" };
+}
+
+async function weatherFor(city: City, units: Units): Promise<string> {
+  try {
+    const f = await withSpinner(`Clima de ${city.name}…`, () =>
+      getForecast(city.latitude, city.longitude, units),
+    );
+    return weatherBlock(city, f);
+  } catch (e) {
+    return err(`No se pudo obtener el clima de ${city.name}: ${(e as Error).message}`);
+  }
+}
+
+async function dailyFor(city: City, units: Units): Promise<string> {
+  try {
+    const f = await withSpinner(`7 días de ${city.name}…`, () =>
+      getForecast(city.latitude, city.longitude, units),
+    );
+    return dailyBlock(city, f);
+  } catch (e) {
+    return err(
+      `No se pudo obtener el pronóstico de ${city.name}: ${(e as Error).message}`,
+    );
+  }
+}
+
+async function cmdWeatherDefault(config: Config): Promise<string> {
+  if (!config.defaultCity) {
+    return err("No hay ciudad default. Usa la opción 5 para establecerla.");
+  }
+  return weatherFor(config.defaultCity, config.units);
+}
+
+async function cmdWeatherAll(config: Config): Promise<string> {
+  if (config.cities.length === 0) return err("No hay ciudades guardadas.");
+  const blocks: string[] = [];
+  for (const c of config.cities) blocks.push(await weatherFor(c, config.units));
+  return blocks.join("\n");
+}
+
+async function cmdAddCity(config: Config): Promise<string> {
+  const name = prompt("Nombre de la ciudad: ");
+  if (!name) return err("Operación cancelada.");
+  const { city, message } = await pickCity(config, name);
+  if (message) return message;
+  if (!city) return err("No se seleccionó ninguna ciudad.");
   if (config.cities.some((c) => c.id === city.id)) {
-    console.log(`"${city.name}" ya está en la lista.`);
-    console.log("");
-    return;
+    return err(`"${city.name}" ya está en la lista.`);
   }
   if (config.defaultCity?.id === city.id) {
-    console.log(`"${city.name}" ya es la ciudad default.`);
-    console.log("");
-    return;
+    return err(`"${city.name}" ya es la ciudad default.`);
   }
   config.cities.push(city);
   saveConfig(config);
-  console.log(`"${city.name}" agregada.`);
-  console.log("");
+  return ok(`"${city.name}" agregada.`);
 }
 
-async function removeCity(config: Config): Promise<void> {
-  if (config.cities.length === 0) {
-    console.log("No hay ciudades guardadas.");
-    console.log("");
-    return;
-  }
+async function cmdRemoveCity(config: Config): Promise<string> {
+  if (config.cities.length === 0) return err("No hay ciudades guardadas.");
   console.log("Ciudades guardadas:");
   config.cities.forEach((c, i) => {
     const region = regionOf(c);
@@ -61,81 +107,81 @@ async function removeCity(config: Config): Promise<void> {
   const input = prompt("Número de la ciudad a eliminar: ");
   const idx = input ? Number.parseInt(input, 10) - 1 : NaN;
   if (Number.isNaN(idx) || idx < 0 || idx >= config.cities.length) {
-    console.log("Opción inválida.");
-    console.log("");
-    return;
+    return err("Opción inválida.");
   }
   const removed = config.cities.splice(idx, 1)[0];
-  if (!removed) return;
+  if (!removed) return err("No se pudo eliminar.");
   saveConfig(config);
-  console.log(`"${removed.name}" eliminada.`);
-  console.log("");
+  return ok(`"${removed.name}" eliminada.`);
 }
 
-async function setDefaultCity(config: Config): Promise<void> {
+async function cmdSetDefault(config: Config): Promise<string> {
   const name = prompt("Nombre de la ciudad default: ");
-  if (!name) return;
-  const city = await geocodeCity(name);
-  if (!city) {
-    console.log(`No se encontró la ciudad "${name}".`);
-    console.log("");
-    return;
-  }
+  if (!name) return err("Operación cancelada.");
+  const { city, message } = await pickCity(config, name);
+  if (message) return message;
+  if (!city) return err("No se seleccionó ninguna ciudad.");
   config.cities = config.cities.filter((c) => c.id !== city.id);
   config.defaultCity = city;
   saveConfig(config);
-  console.log(`Ciudad default: ${city.name}.`);
-  console.log("");
+  return ok(`Ciudad default: ${city.name}.`);
 }
 
-function toggleSettings(config: Config): void {
+async function cmdDailyDefault(config: Config): Promise<string> {
+  if (!config.defaultCity) {
+    return err("No hay ciudad default. Usa la opción 5 para establecerla.");
+  }
+  return dailyFor(config.defaultCity, config.units);
+}
+
+function cmdToggleSettings(config: Config): string {
   config.units = config.units === "c" ? "f" : "c";
   saveConfig(config);
-  console.log(`Unidad: ${config.units === "c" ? "°C" : "°F"}`);
-  console.log("");
+  return ok(`Unidad: ${config.units === "c" ? "°C" : "°F"}`);
 }
+
+const commands: Command[] = [
+  { id: "1", label: () => "Clima de ciudad default", run: cmdWeatherDefault },
+  {
+    id: "2",
+    label: (c) => `Clima de todas las ciudades (${c.cities.length})`,
+    run: cmdWeatherAll,
+  },
+  { id: "3", label: () => "Buscar y agregar ciudad", run: cmdAddCity },
+  { id: "4", label: () => "Eliminar ciudad", run: cmdRemoveCity },
+  { id: "5", label: () => "Establecer ciudad default", run: cmdSetDefault },
+  { id: "6", label: () => "Pronóstico 7 días (default)", run: cmdDailyDefault },
+  {
+    id: "8",
+    label: (c) => `Ajustes (${c.units === "c" ? "°C" : "°F"})`,
+    run: cmdToggleSettings,
+  },
+  { id: "9", label: () => "Salir", run: () => "" },
+];
+
+const VALID = new Set(commands.map((c) => c.id));
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  let lastMessage: string | undefined;
   while (true) {
-    renderMenu(config);
+    renderMenu(config, commands, lastMessage);
     const opt = readMenuOption();
     if (opt === null) break;
-    if (!VALID_OPTIONS.has(opt)) {
-      console.log("Opción inválida. Usa 1-5, 8 o 9.");
-      prompt("(Enter para continuar)");
+    if (!VALID.has(opt)) {
+      lastMessage = err("Opción inválida. Usa 1-6, 8 o 9.");
       continue;
     }
-    console.log("");
     if (opt === "9") break;
-    if (opt === "1") {
-      if (!config.defaultCity) {
-        console.log("No hay ciudad default. Usa la opción 5 para establecerla.");
-        console.log("");
-      } else {
-        await showWeatherForCity(config.defaultCity, config.units);
-      }
-    } else if (opt === "2") {
-      if (config.cities.length === 0) {
-        console.log("No hay ciudades guardadas.");
-        console.log("");
-      } else {
-        for (const city of config.cities) {
-          await showWeatherForCity(city, config.units);
-        }
-      }
-    } else if (opt === "3") {
-      await addCity(config);
-    } else if (opt === "4") {
-      await removeCity(config);
-    } else if (opt === "5") {
-      await setDefaultCity(config);
-    } else if (opt === "8") {
-      toggleSettings(config);
+    const cmd = commands.find((c) => c.id === opt);
+    if (!cmd) break;
+    try {
+      lastMessage = await cmd.run(config);
+    } catch (e) {
+      lastMessage = err(`Error inesperado: ${(e as Error).message}`);
     }
-    prompt("(Enter para continuar)");
   }
-  console.log("¡Hasta luego!");
+  console.log(cyan(bold("¡Hasta luego!")));
 }
 
 await main();
