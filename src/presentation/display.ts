@@ -1,20 +1,8 @@
-import type { City } from "./config";
-import type { Forecast } from "./api";
-import { weatherDescription } from "./weather_codes";
-import { cyan, yellow, dim, bold, blue, temp, muted } from "./colors";
-
-function regionOf(c: City): string {
-  return [c.admin1, c.country].filter(Boolean).join(", ");
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("es", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-  });
-}
+import type { City } from "../types/City";
+import type { Forecast } from "../types/Weather";
+import { regionOf, fmtDate } from "../utils/format";
+import { weatherDescription } from "../utils/weatherCodes";
+import { cyan, yellow, dim, bold, blue, temp, muted } from "../utils/colors";
 
 export function weatherBlock(city: City, f: Forecast): string {
   const region = regionOf(city);

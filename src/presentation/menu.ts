@@ -1,13 +1,7 @@
-import type { Config } from "./config";
-import { cyan, bold, dim } from "./colors";
-
-export type Command = {
-  id: string;
-  label: (config: Config) => string;
-  run: (config: Config) => Promise<string> | string;
-};
-
-const SEP = "=".repeat(39);
+import type { Config } from "../types/Config";
+import type { Command } from "../types/MenuOption";
+import { cyan, bold, dim } from "../utils/colors";
+import { MENU_SEP } from "../utils/constants";
 
 export function renderMenu(
   config: Config,
@@ -17,17 +11,17 @@ export function renderMenu(
   console.clear();
   if (lastMessage) {
     console.log(lastMessage.trimEnd());
-    console.log(dim(SEP));
+    console.log(dim(MENU_SEP));
   }
   console.log(cyan(bold("         WEATHER CLI")));
-  console.log(cyan(SEP));
+  console.log(cyan(MENU_SEP));
   for (const cmd of commands) {
     console.log(`  ${cyan(cmd.id)}. ${cmd.label(config)}`);
   }
-  console.log(cyan(SEP));
+  console.log(cyan(MENU_SEP));
   if (config.defaultCity) {
     console.log(`  Default: ${dim(config.defaultCity.name)}`);
-    console.log(cyan(SEP));
+    console.log(cyan(MENU_SEP));
   }
 }
 

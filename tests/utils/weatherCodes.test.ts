@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { weatherDescription } from "../src/weather_codes";
+import { weatherDescription } from "../../src/utils/weatherCodes";
 
 describe("weatherDescription", () => {
   it("describe un cielo despejado", () => {

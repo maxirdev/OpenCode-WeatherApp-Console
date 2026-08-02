@@ -1,50 +1,6 @@
-import type { City, Units } from "./config";
-
-const GEO_URL = "https://geocoding-api.open-meteo.com/v1/search";
-const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
-
-type GeoResult = {
-  id: number;
-  name: string;
-  latitude: number;
-  longitude: number;
-  country: string;
-  admin1: string;
-};
-
-export async function geocodeCity(name: string): Promise<City[]> {
-  const url = `${GEO_URL}?name=${encodeURIComponent(name)}&count=5&language=es&format=json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Geocoding API error: ${res.status}`);
-  const data = (await res.json()) as { results?: GeoResult[] };
-  const results = data.results ?? [];
-  return results.map((r) => ({
-    id: r.id,
-    name: r.name,
-    latitude: r.latitude,
-    longitude: r.longitude,
-    country: r.country,
-    admin1: r.admin1,
-  }));
-}
-
-export type DailyEntry = {
-  date: string;
-  tMax: number;
-  tMin: number;
-  code: number;
-  precip: number;
-};
-
-export type Forecast = {
-  temperature: number;
-  humidity: number;
-  windSpeed: number;
-  weatherCode: number;
-  tempUnit: string;
-  windUnit: string;
-  daily: DailyEntry[];
-};
+import type { Units } from "../types/Units";
+import type { Forecast, DailyEntry } from "../types/Weather";
+import { FORECAST_URL } from "../utils/constants";
 
 export async function getForecast(
   lat: number,

@@ -1,6 +1,6 @@
 {
   "name": "02-weather",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
   "devDependencies": {
@@ -10,9 +10,9 @@
     "typescript": "^5"
   },
   "scripts": {
-    "build": "bun build --compile index.ts --outfile ./out/weather",
-    "start": "bun run index.ts",
-    "dev": "bun run index.ts --watch"
+    "build": "bun build --compile src/index.ts --outfile ./out/weather",
+    "start": "bun run src/index.ts",
+    "dev": "bun run src/index.ts --watch"
   },
   "dependencies": {
     "picocolors": "^1.1.1"
