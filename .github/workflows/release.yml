@@ -51,16 +51,18 @@ jobs:
       - name: Build (tests + compile)
         run: bun run build
 
-      - name: Rename binary to .exe
+      - name: Stage binary as release asset
         shell: pwsh
         run: |
-          $asset = "weather-v${env:VERSION}-windows-x64.exe"
-          if (-not (Test-Path -LiteralPath "out\weather")) {
-            Write-Error "::error::No se encontro el binario out\weather tras el build"
+          $src = "out\weather.exe"
+          if (-not (Test-Path -LiteralPath $src)) {
+            Write-Error "::error::No se encontro el binario $src tras el build"
             exit 1
           }
-          Copy-Item -LiteralPath "out\weather" -Destination $asset -Force
+          $asset = "weather-v${env:VERSION}-windows-x64.exe"
+          Copy-Item -LiteralPath $src -Destination $asset -Force
           Write-Host "Asset generado: $asset"
+          Write-Host "Tamano (bytes): $((Get-Item $asset).Length)"
 
       - name: Create and push tag
         shell: bash
