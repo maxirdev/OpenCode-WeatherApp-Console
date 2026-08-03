@@ -1,6 +1,6 @@
 {
   "name": "weatherConsole-OC",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
@@ -11,7 +11,7 @@
     "typescript": "^5"
   },
   "scripts": {
-    "build": "bun test && bun build --compile src/index.ts --outfile ./out/weather",
+    "build": "bun test && bun build --compile src/index.ts --outfile weather",
     "start": "bun run src/index.ts",
     "dev": "bun run src/index.ts --watch",
     "test": "bun test",

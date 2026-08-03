@@ -54,13 +54,18 @@ jobs:
       - name: Stage binary as release asset
         shell: pwsh
         run: |
-          $src = "out\weather.exe"
-          if (-not (Test-Path -LiteralPath $src)) {
-            Write-Error "::error::No se encontro el binario $src tras el build"
+          $candidates = @("out\weather.exe", "out\weather", "weather.exe", "weather")
+          $src = $null
+          foreach ($c in $candidates) {
+            if (Test-Path -LiteralPath $c) { $src = $c; break }
+          }
+          if (-not $src) {
+            Write-Error "::error::No se encontro el binario. Paths probados: $($candidates -join ', ')"
             exit 1
           }
           $asset = "weather-v${env:VERSION}-windows-x64.exe"
           Copy-Item -LiteralPath $src -Destination $asset -Force
+          Write-Host "Origen: $src"
           Write-Host "Asset generado: $asset"
           Write-Host "Tamano (bytes): $((Get-Item $asset).Length)"
 
